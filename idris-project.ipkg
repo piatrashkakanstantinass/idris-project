@@ -1,0 +1,7 @@
+package idris-project
+
+version = 0.1.0
+main = Main
+
+executable = "idris-project"
+sourcedir = "src"
