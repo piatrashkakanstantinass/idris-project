@@ -5,3 +5,4 @@ main = Main
 
 executable = "idris-project"
 sourcedir = "src"
+depends = contrib
