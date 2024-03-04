@@ -13,6 +13,12 @@ data Regex : Type where
   Nil : Regex
   (::) : (x : RegexSegment) -> (xs : Regex) -> Regex
 
+public export
+record
+Match where
+  constructor MkMatch
+  groups : List String
+
 export
 Cast (List RegexSegment) Regex where
   cast [] = Nil
