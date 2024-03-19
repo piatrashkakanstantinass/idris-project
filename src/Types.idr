@@ -2,6 +2,7 @@ module Types
 
 import Data.SortedMap
 import Data.Vect
+import Data.String
 
 %default total
 
@@ -18,22 +19,30 @@ Show ErrorMessage where
     show = id
 
 export
-SQLName : Type
-SQLName = String
+data SQLName : Type where
+    Name : String -> SQLName
 
 export
 FromString SQLName where
-    fromString = id
+    fromString s = Name s
 
 export
 Show SQLName where
-    show = id
+    show (Name s) = s
+
+export
+Eq SQLName where
+    (Name a) == (Name b) = toLower a == toLower b
+
+export
+Ord SQLName where
+    (Name a) < (Name b) = toLower a < toLower b
 
 export
 length : SQLName -> Nat
-length str = String.length str
+length (Name str) = String.length str
 
-export
+public export
 data SQLSchema = SQLSString | SQLSInt | SQLSBool
 
 public export
@@ -59,10 +68,17 @@ export
 dbLookup : DB -> SQLName -> Maybe DataFrame
 dbLookup (MkDB x) str = lookup str x
 
+export
+dbInsert : DB -> SQLName -> DataFrame -> Maybe DB
+dbInsert db @ (MkDB smap) name df =
+    case dbLookup db name of
+         Nothing => Just (MkDB $ insert name df smap)
+         (Just x) => ?idk_1
+
 export initialDB : DB
 initialDB = MkDB $ fromList [
     ("test", MkDataFrame 1 [("id", SQLSInt)] [[SQLVInt 123]])
 ]
 
 public export
-data Query = Select SQLName
+data Query = Select SQLName | Create SQLName DataFrame

@@ -8,9 +8,6 @@ import Parser
 
 %default total
 
-database : DB
-database = initialDB
-
 displayDataFrame : DataFrame -> String
 displayDataFrame (MkDataFrame _ cols rows) = let
     -- These calculations ensure that every column will be only as wide as it has to be.
@@ -51,19 +48,29 @@ displayDataFrame (MkDataFrame _ cols rows) = let
     tableRows [] _ = ""
     tableRows (x :: xs) sizes = valueStr (map show x) sizes ++ "\n" ++ separatorLine sizes ++ tableRows xs sizes
 
-processQuery : Query -> Either ErrorMessage DataFrame
-processQuery (Select x) =
-    case dbLookup database x of
-         Nothing => Left "No such table"
-         (Just y) => Right y
+data QueryResult = SimpleOutput String | Table DataFrame
 
-processInput : () -> String -> Maybe (String, ())
-processInput _ str = case parseQuery str of
-                          (Left x) => Just (show x ++ "\n", ())
-                          (Right x) => case processQuery x of
-                                            (Left y) => Just (show y ++ "\n", ())
-                                            (Right y) => Just (displayDataFrame y, ())
+processQuery : DB -> Query -> Either ErrorMessage (DB, QueryResult)
+processQuery db (Select x) =
+    case dbLookup db x of
+         Nothing => Left "No such table"
+         (Just y) => Right (db, Table y)
+processQuery db (Create name df) =
+    case dbInsert db name df of
+         Nothing => Left "Table exists"
+         (Just newDb) => Right (newDb, SimpleOutput "Created.")
+
+displayQueryResult : QueryResult -> String
+displayQueryResult (SimpleOutput str) = str ++ "\n"
+displayQueryResult (Table x) = displayDataFrame x
+
+processInput : DB -> String -> Maybe (String, DB)
+processInput db str = case parseQuery str of
+                          (Left x) => Just (show x ++ "\n", db)
+                          (Right x) => case processQuery db x of
+                                            (Left y) => Just (show y ++ "\n", db)
+                                            (Right (newDb, res)) => Just (displayQueryResult res, newDb)
 
 covering
 main : IO ()
-main = putStrLn "Welcome to SQL DB" >> replWith () "> " processInput
+main = putStrLn "Welcome to SQL DB" >> replWith initialDB "> " processInput
