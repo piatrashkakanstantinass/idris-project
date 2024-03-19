@@ -73,7 +73,7 @@ dbInsert : DB -> SQLName -> DataFrame -> Maybe DB
 dbInsert db @ (MkDB smap) name df =
     case dbLookup db name of
          Nothing => Just (MkDB $ insert name df smap)
-         (Just x) => ?idk_1
+         (Just _) => Nothing
 
 export initialDB : DB
 initialDB = MkDB $ fromList [
