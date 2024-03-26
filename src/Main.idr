@@ -50,15 +50,28 @@ displayDataFrame (MkDataFrame _ cols rows) = let
 
 data QueryResult = SimpleOutput String | Table DataFrame
 
+lookupTable : DB -> SQLName -> Either ErrorMessage DataFrame
+lookupTable db name =
+    case dbLookup db name of
+        Nothing => Left "No such table"
+        (Just y) => Right y
+
 processQuery : DB -> Query -> Either ErrorMessage (DB, QueryResult)
-processQuery db (Select x) =
-    case dbLookup db x of
-         Nothing => Left "No such table"
-         (Just y) => Right (db, Table y)
+processQuery db (Select x) = lookupTable db x >>= (\t => pure (db, Table t))
 processQuery db (Create name df) =
     case dbInsert db name df of
          Nothing => Left "Table exists"
          (Just newDb) => Right (newDb, SimpleOutput "Created.")
+processQuery db (Insert name row) = do
+    df <- lookupTable db name
+    let tableSchema = map snd df.cols
+    case exactLength (df.colSize) (fromList row) of
+               Nothing => Left "Schema does not match"
+               (Just r) => case tableSchema == (map sqlValueToSchema r) of
+                                False => Left "Schema does not match"
+                                True => Right (dbUpdate db name (dfInsert df r), SimpleOutput "Inserted.")
+    
+
 
 displayQueryResult : QueryResult -> String
 displayQueryResult (SimpleOutput str) = str ++ "\n"

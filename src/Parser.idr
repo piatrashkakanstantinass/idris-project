@@ -2,6 +2,7 @@ module Parser
 
 import Data.List
 import Data.Vect
+import Data.String
 import Types
 
 %default total
@@ -125,8 +126,41 @@ parseColumnDecl = do
     schema <- parseSQLSchema
     pure (name, schema)
 
+parseInt : Parser Int
+parseInt = MkParser $ \inp => let
+    cs = takeWhile isDigit inp
+    parsedValue = parseInteger (pack cs)
+    in case parsedValue of
+        Nothing => Left "Int value expected"
+        (Just v) => Right (drop (length cs) inp, v)
+
+parseSQLVString : Parser SQLValue
+parseSQLVString = parseLeftRight (parseChar '"') (parseChar '"') (MkParser $ \inp =>
+    let res = takeWhile (\c => not (isSpace c || c == ',' || c == '"')) inp
+    in case null res of
+        True => Left "SQL String value expected"
+        False => Right (drop (length res) inp, SQLVString (pack res)))
+
+parseSQLVInt : Parser SQLValue
+parseSQLVInt = do
+    i <- parseInt
+    pure $ SQLVInt i
+
+parseSQLVBool : Parser SQLValue
+parseSQLVBool = (do
+    _ <- parseIgnoreCaseString "false"
+    pure $ SQLVBool False) <|> (do
+        _ <- parseIgnoreCaseString "true"
+        pure $ SQLVBool True)
+
+parseSQLValue : Parser SQLValue
+parseSQLValue = parseSQLVString <|> parseSQLVInt <|> parseSQLVBool
+
 parseColumnList : Parser (List (SQLName, SQLSchema))
 parseColumnList = parseCommaSeparated parseColumnDecl
+
+parseValueList : Parser (List SQLValue)
+parseValueList = parseCommaSeparated parseSQLValue
     
 parseCreate : Parser Query
 parseCreate = do
@@ -139,10 +173,24 @@ parseCreate = do
     cols <- parseInParantheses parseColumnList
     pure $ Create name ((MkDataFrame (length cols) (fromList cols) []))
 
+parseInsert : Parser Query
+parseInsert = do
+    _ <- parseIgnoreCaseString "insert"
+    _ <- parseWhitespace
+    _ <- parseIgnoreCaseString "into"
+    _ <- parseWhitespace
+    name <- parseName
+    _ <- parseWhitespace
+    _ <- parseIgnoreCaseString "values"
+    _ <- optional parseWhitespace
+    values <- parseInParantheses parseValueList
+    pure $ Insert name values
+
+
 parseQuery' : Parser Query
 parseQuery' = do
     _ <- optional parseWhitespace
-    q <- parseSelect <|> parseCreate
+    q <- parseSelect <|> parseCreate <|> parseInsert
     _ <- optional parseWhitespace
     parseEnd
     pure q

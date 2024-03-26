@@ -45,6 +45,13 @@ length (Name str) = String.length str
 public export
 data SQLSchema = SQLSString | SQLSInt | SQLSBool
 
+export
+Eq SQLSchema where
+    SQLSString == SQLSString = True
+    SQLSInt == SQLSInt = True
+    SQLSBool == SQLSBool = True
+    _ == _ = False
+
 public export
 data SQLValue = SQLVString String | SQLVInt Int | SQLVBool Bool
 
@@ -75,10 +82,30 @@ dbInsert db @ (MkDB smap) name df =
          Nothing => Just (MkDB $ insert name df smap)
          (Just _) => Nothing
 
+export
+dbUpdate : DB -> SQLName -> DataFrame -> DB
+dbUpdate db @ (MkDB smap) name df = MkDB $ updateExisting (\_ => df) name smap
+
+export
+dfInsert : (df: DataFrame) -> Vect (df.colSize) SQLValue -> DataFrame
+dfInsert (MkDataFrame colSize cols rows) xs = MkDataFrame colSize cols $ reverse (xs :: rows)
+
 export initialDB : DB
 initialDB = MkDB $ fromList [
     ("test", MkDataFrame 1 [("id", SQLSInt)] [[SQLVInt 123]])
 ]
 
+export
+sqlValueToSchema : SQLValue -> SQLSchema
+sqlValueToSchema (SQLVString _) = SQLSString
+sqlValueToSchema (SQLVInt i) = SQLSInt
+sqlValueToSchema (SQLVBool x) = SQLSBool
+
+-- sqlValueMatchingSchema : SQLValue -> SQLSchema -> Bool
+-- sqlValueMatchingSchema (SQLVString _) SQLSString = True
+-- sqlValueMatchingSchema (SQLVInt _) SQLSInt = True
+-- sqlValueMatchingSchema (SQLVBool _) SQLSBool = True
+-- sqlValueMatchingSchema _ _ = False
+
 public export
-data Query = Select SQLName | Create SQLName DataFrame
+data Query = Select SQLName | Create SQLName DataFrame | Insert SQLName (List SQLValue)
