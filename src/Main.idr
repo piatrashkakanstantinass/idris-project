@@ -5,29 +5,27 @@ import Data.Vect
 import Data.List
 import Types
 import Parser
+import Decidable.Equality.Core
 
 %default total
 
 displayDataFrame : DataFrame -> String
-displayDataFrame (MkDataFrame _ cols rows) = let
-    -- These calculations ensure that every column will be only as wide as it has to be.
-    headerColWidths = map headerWidth cols
-    valueColWidths = map valueColWidth (valueCols rows)
+displayDataFrame (MkDataFrame schema names rows) = let
+    headerColWidths = map length names
+    rows' = map (\r => rowValueToVect r) rows
+    valueColWidths = map valueColWidth (valueCols rows')
     colWidths = map (\(a,b) => maximum a b) $ zip headerColWidths valueColWidths
-    in header cols colWidths ++ tableRows rows colWidths
+    in header names colWidths ++ tableRows rows' colWidths
     where
-    headerWidth : (SQLName, SQLSchema) -> Nat
-    headerWidth (x, _) = length x
-
     valueCols : {k: Nat} -> List (Vect k a) -> Vect k (List a)
     valueCols xss = map toList $ transpose (fromList xss)
 
-    valueWidth : SQLValue -> Nat
-    valueWidth (SQLVString str) = length str
-    valueWidth (SQLVInt i) = length $ show i
-    valueWidth (SQLVBool x) = length $ show x
+    valueWidth : (s ** SQLValue s) -> Nat
+    valueWidth (_ ** SQLVString str) = length str
+    valueWidth (_ ** SQLVInt i) = length $ show i
+    valueWidth (_ ** SQLVBool x) = length $ show x
 
-    valueColWidth : List SQLValue -> Nat
+    valueColWidth : List (s ** SQLValue s) -> Nat
     valueColWidth xs = foldl maximum 0 $ map valueWidth xs
 
     separatorLine' : Vect k Nat -> String
@@ -41,12 +39,12 @@ displayDataFrame (MkDataFrame _ cols rows) = let
     valueStr [] [] = "|"
     valueStr (x :: xs) (y :: ys) = "|" ++ x ++ pack (replicate (y `minus` length x) ' ') ++ valueStr xs ys
 
-    header : (cols: Vect k (SQLName, _)) -> (sizes: Vect k Nat) -> String
-    header cols sizes = separatorLine sizes ++ valueStr (map (show . fst) cols) sizes ++ "\n" ++ separatorLine sizes
+    header : (cols: Vect k SQLName) -> (sizes: Vect k Nat) -> String
+    header cols sizes = separatorLine sizes ++ valueStr (map show cols) sizes ++ "\n" ++ separatorLine sizes
 
-    tableRows : (rows: List (Vect k SQLValue)) -> (sizes: Vect k Nat) -> String
+    tableRows : (rows: List (Vect k (s ** SQLValue s))) -> (sizes: Vect k Nat) -> String
     tableRows [] _ = ""
-    tableRows (x :: xs) sizes = valueStr (map show x) sizes ++ "\n" ++ separatorLine sizes ++ tableRows xs sizes
+    tableRows (x :: xs) sizes = valueStr (map (\(_ ** v) => show v) x) sizes ++ "\n" ++ separatorLine sizes ++ tableRows xs sizes
 
 data QueryResult = SimpleOutput String | Table DataFrame
 
@@ -62,16 +60,11 @@ processQuery db (Create name df) =
     case dbInsert db name df of
          Nothing => Left "Table exists"
          (Just newDb) => Right (newDb, SimpleOutput "Created.")
-processQuery db (Insert name row) = do
+processQuery db (Insert name (s ** v)) = do
     df <- lookupTable db name
-    let tableSchema = map snd df.cols
-    case exactLength (df.colSize) (fromList row) of
-               Nothing => Left "Schema does not match"
-               (Just r) => case tableSchema == (map sqlValueToSchema r) of
-                                False => Left "Schema does not match"
-                                True => Right (dbUpdate db name (dfInsert df r), SimpleOutput "Inserted.")
-    
-
+    case decEq df.schema s of
+         (Yes Refl) => Right (dbUpdate db name (dfInsert df v), SimpleOutput "Inserted.")
+         (No contra) => Left "Schema does not match"    
 
 displayQueryResult : QueryResult -> String
 displayQueryResult (SimpleOutput str) = str ++ "\n"

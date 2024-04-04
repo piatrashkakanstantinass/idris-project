@@ -119,12 +119,12 @@ parseSQLSchema = parseName >>= \name => MkParser $ \inp =>
     else if name == "bool" then Right (inp, SQLSBool)
     else Left "SQL type expected"
 
-parseColumnDecl : Parser (SQLName, SQLSchema)
+parseColumnDecl : Parser (SQLSchema, SQLName)
 parseColumnDecl = do
     name <- parseName
     _ <- parseWhitespace
     schema <- parseSQLSchema
-    pure (name, schema)
+    pure (schema, name)
 
 parseInt : Parser Int
 parseInt = MkParser $ \inp => let
@@ -134,32 +134,32 @@ parseInt = MkParser $ \inp => let
         Nothing => Left "Int value expected"
         (Just v) => Right (drop (length cs) inp, v)
 
-parseSQLVString : Parser SQLValue
+parseSQLVString : Parser (s ** SQLValue s)
 parseSQLVString = parseLeftRight (parseChar '"') (parseChar '"') (MkParser $ \inp =>
     let res = takeWhile (\c => not (isSpace c || c == ',' || c == '"')) inp
     in case null res of
         True => Left "SQL String value expected"
-        False => Right (drop (length res) inp, SQLVString (pack res)))
+        False => Right (drop (length res) inp, (SQLSString ** SQLVString (pack res))))
 
-parseSQLVInt : Parser SQLValue
+parseSQLVInt : Parser (s ** SQLValue s)
 parseSQLVInt = do
     i <- parseInt
-    pure $ SQLVInt i
+    pure $ (SQLSInt ** SQLVInt i)
 
-parseSQLVBool : Parser SQLValue
+parseSQLVBool : Parser (s ** SQLValue s)
 parseSQLVBool = (do
     _ <- parseIgnoreCaseString "false"
-    pure $ SQLVBool False) <|> (do
+    pure $ (SQLSBool ** SQLVBool False)) <|> (do
         _ <- parseIgnoreCaseString "true"
-        pure $ SQLVBool True)
+        pure $ (SQLSBool ** SQLVBool True))
 
-parseSQLValue : Parser SQLValue
+parseSQLValue : Parser (s ** SQLValue s)
 parseSQLValue = parseSQLVString <|> parseSQLVInt <|> parseSQLVBool
 
-parseColumnList : Parser (List (SQLName, SQLSchema))
+parseColumnList : Parser (List (SQLSchema, SQLName))
 parseColumnList = parseCommaSeparated parseColumnDecl
 
-parseValueList : Parser (List SQLValue)
+parseValueList : Parser (List (s ** SQLValue s))
 parseValueList = parseCommaSeparated parseSQLValue
     
 parseCreate : Parser Query
@@ -171,7 +171,8 @@ parseCreate = do
     name <- parseName
     _ <- optional parseWhitespace
     cols <- parseInParantheses parseColumnList
-    pure $ Create name ((MkDataFrame (length cols) (fromList cols) []))
+    (let (s ** names) = schemaAndNameFromList cols
+        in pure $ Create name (MkDataFrame s names []))
 
 parseInsert : Parser Query
 parseInsert = do
@@ -184,7 +185,7 @@ parseInsert = do
     _ <- parseIgnoreCaseString "values"
     _ <- optional parseWhitespace
     values <- parseInParantheses parseValueList
-    pure $ Insert name values
+    pure $ Insert name (rowValueFromList values)
 
 
 parseQuery' : Parser Query
