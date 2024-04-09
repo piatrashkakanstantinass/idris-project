@@ -44,7 +44,7 @@ length : SQLName -> Nat
 length (Name str) = String.length str
 
 public export
-data SQLSchema = SQLSString | SQLSInt | SQLSBool
+data SQLSchema = SQLSString | SQLSInt | SQLSBool | SQLSUnknown
 
 export
 Eq SQLSchema where
@@ -71,6 +71,24 @@ Uninhabited (SQLSBool = SQLSString) where
 Uninhabited (SQLSBool = SQLSInt) where
     uninhabited Refl impossible
 
+Uninhabited (SQLSString = SQLSUnknown) where
+    uninhabited Refl impossible
+
+Uninhabited (SQLSInt = SQLSUnknown) where
+    uninhabited Refl impossible
+
+Uninhabited (SQLSBool = SQLSUnknown) where
+    uninhabited Refl impossible
+
+Uninhabited (SQLSUnknown = SQLSString) where
+    uninhabited Refl impossible
+
+Uninhabited (SQLSUnknown = SQLSInt) where
+    uninhabited Refl impossible
+
+Uninhabited (SQLSUnknown = SQLSBool) where
+    uninhabited Refl impossible
+
 DecEq SQLSchema where
     decEq SQLSString SQLSString = Yes Refl
     decEq SQLSString SQLSInt = No absurd
@@ -81,18 +99,27 @@ DecEq SQLSchema where
     decEq SQLSBool SQLSString = No absurd
     decEq SQLSBool SQLSInt = No absurd
     decEq SQLSBool SQLSBool = Yes Refl
+    decEq SQLSString SQLSUnknown = No absurd
+    decEq SQLSInt SQLSUnknown = No absurd
+    decEq SQLSBool SQLSUnknown = No absurd
+    decEq SQLSUnknown SQLSUnknown = Yes Refl
+    decEq SQLSUnknown SQLSString = No absurd
+    decEq SQLSUnknown SQLSInt = No absurd
+    decEq SQLSUnknown SQLSBool = No absurd
 
 public export
 data SQLValue : SQLSchema -> Type where
     SQLVString : String -> SQLValue SQLSString
     SQLVInt : Int -> SQLValue SQLSInt
     SQLVBool : Bool -> SQLValue SQLSBool
+    SQLVNull : SQLValue _
 
 export
 Show (SQLValue _) where
     show (SQLVString str) = str
     show (SQLVInt i) = show i
     show (SQLVBool x) = show x
+    show SQLVNull = "null"
 
 public export
 data SQLRowSchema = RowSchemaEnd | RowSchemaSeq SQLSchema SQLRowSchema
@@ -180,6 +207,25 @@ export initialDB : DB
 initialDB = MkDB $ fromList [
     ("test", (MkDataFrame (RowSchemaSeq SQLSInt RowSchemaEnd) ["id"] [(RowValueSeq (SQLVInt 123) RowValueEnd)]))
 ]
+
+adaptSchema : {s1: SQLSchema} -> SQLValue s1 -> (s2 : SQLSchema) -> Maybe (SQLValue s2)
+adaptSchema SQLVNull _ = Just SQLVNull
+adaptSchema {s1} v s2 = case decEq s1 s2 of
+                             (Yes Refl) => Just v
+                             (No contra) => Nothing
+
+export
+fixUnknownsInRowValue : {s1 : SQLRowSchema} -> SQLRowValue s1 -> (s2 : SQLRowSchema) -> Maybe (SQLRowValue s2)
+fixUnknownsInRowValue RowValueEnd RowSchemaEnd = Just RowValueEnd
+fixUnknownsInRowValue RowValueEnd (RowSchemaSeq x y) = case fixUnknownsInRowValue RowValueEnd y of
+                                                            Nothing => Nothing
+                                                            (Just z) => Just (RowValueSeq SQLVNull z)
+fixUnknownsInRowValue (RowValueSeq x y) RowSchemaEnd = Nothing
+fixUnknownsInRowValue (RowValueSeq x y) (RowSchemaSeq z w) = case fixUnknownsInRowValue y w of
+                                                                  Nothing => Nothing
+                                                                  (Just v) => case adaptSchema x z of
+                                                                                   Nothing => Nothing
+                                                                                   (Just s) => Just (RowValueSeq s v)
 
 public export
 data Query = Select SQLName | Create SQLName DataFrame | Insert SQLName (rowSchema ** SQLRowValue rowSchema)

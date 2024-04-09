@@ -24,6 +24,7 @@ displayDataFrame (MkDataFrame schema names rows) = let
     valueWidth (_ ** SQLVString str) = length str
     valueWidth (_ ** SQLVInt i) = length $ show i
     valueWidth (_ ** SQLVBool x) = length $ show x
+    valueWidth (_ ** SQLVNull) = 4
 
     valueColWidth : List (s ** SQLValue s) -> Nat
     valueColWidth xs = foldl maximum 0 $ map valueWidth xs
@@ -62,9 +63,9 @@ processQuery db (Create name df) =
          (Just newDb) => Right (newDb, SimpleOutput "Created.")
 processQuery db (Insert name (s ** v)) = do
     df <- lookupTable db name
-    case decEq df.schema s of
-         (Yes Refl) => Right (dbUpdate db name (dfInsert df v), SimpleOutput "Inserted.")
-         (No contra) => Left "Schema does not match"    
+    case fixUnknownsInRowValue v df.schema of
+         Nothing => Left "Schema does not match"
+         Just v' => Right (dbUpdate db name (dfInsert df v'), SimpleOutput "Inserted.")
 
 displayQueryResult : QueryResult -> String
 displayQueryResult (SimpleOutput str) = str ++ "\n"

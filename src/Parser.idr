@@ -152,9 +152,14 @@ parseSQLVBool = (do
     pure $ (SQLSBool ** SQLVBool False)) <|> (do
         _ <- parseIgnoreCaseString "true"
         pure $ (SQLSBool ** SQLVBool True))
+    
+parseSQLVNull : Parser (s ** SQLValue s)
+parseSQLVNull = do
+    _ <- parseIgnoreCaseString "null"
+    pure (SQLSUnknown ** SQLVNull)
 
 parseSQLValue : Parser (s ** SQLValue s)
-parseSQLValue = parseSQLVString <|> parseSQLVInt <|> parseSQLVBool
+parseSQLValue = parseSQLVString <|> parseSQLVInt <|> parseSQLVBool <|> parseSQLVNull
 
 parseColumnList : Parser (List (SQLSchema, SQLName))
 parseColumnList = parseCommaSeparated parseColumnDecl
