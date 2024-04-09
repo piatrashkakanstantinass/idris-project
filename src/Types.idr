@@ -104,12 +104,10 @@ Uninhabited ((RowSchemaSeq _ _) =  RowSchemaEnd) where
     uninhabited Refl impossible
 
 headUnequalSQLRow : (contr : x = y -> Void) -> (xs : SQLRowSchema) -> (ys : SQLRowSchema) -> ((RowSchemaSeq x xs) = (RowSchemaSeq y ys) -> Void)
-headUnequalSQLRow contr RowSchemaEnd RowSchemaEnd Refl = contr Refl
-headUnequalSQLRow contr (RowSchemaSeq x y) (RowSchemaSeq x y) Refl = case x of { SQLSString => contr Refl ; SQLSInt => contr Refl ; SQLSBool => contr Refl }
+headUnequalSQLRow contr _ _ Refl = contr Refl
 
 tailUnequalSQLRow : (xs : SQLRowSchema) -> (ys : SQLRowSchema) -> (contr : xs = ys -> Void) -> ((RowSchemaSeq x xs) = (RowSchemaSeq y ys) -> Void)
-tailUnequalSQLRow RowSchemaEnd RowSchemaEnd contr Refl = contr Refl
-tailUnequalSQLRow (RowSchemaSeq x y) (RowSchemaSeq x y) contr Refl = case x of { SQLSString => contr Refl ; SQLSInt => contr Refl ; SQLSBool => contr Refl }
+tailUnequalSQLRow _ _ contr Refl = contr Refl
 
 export
 DecEq SQLRowSchema where
