@@ -201,7 +201,7 @@ dbUpdate db @ (MkDB smap) name df = MkDB $ updateExisting (\_ => df) name smap
 
 export
 dfInsert : (df: DataFrame) -> SQLRowValue df.schema -> DataFrame
-dfInsert (MkDataFrame schema names rows) x = MkDataFrame schema names $ reverse (x :: rows)
+dfInsert (MkDataFrame schema names rows) x = MkDataFrame schema names $ rows ++ [x]
 
 export initialDB : DB
 initialDB = MkDB $ fromList [
