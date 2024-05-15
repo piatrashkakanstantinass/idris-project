@@ -134,38 +134,38 @@ parseInt = MkParser $ \inp => let
         Nothing => Left "Int value expected"
         (Just v) => Right (drop (length cs) inp, v)
 
-parseSQLVString : Parser (s ** SQLValue s)
+parseSQLVString : Parser (s ** SQLPrimitiveValue s)
 parseSQLVString = parseLeftRight (parseChar '"') (parseChar '"') (MkParser $ \inp =>
     let res = takeWhile (\c => not (isSpace c || c == ',' || c == '"')) inp
     in case null res of
         True => Left "SQL String value expected"
         False => Right (drop (length res) inp, (SQLSString ** SQLVString (pack res))))
 
-parseSQLVInt : Parser (s ** SQLValue s)
+parseSQLVInt : Parser (s ** SQLPrimitiveValue s)
 parseSQLVInt = do
     i <- parseInt
     pure $ (SQLSInt ** SQLVInt i)
 
-parseSQLVBool : Parser (s ** SQLValue s)
+parseSQLVBool : Parser (s ** SQLPrimitiveValue s)
 parseSQLVBool = (do
     _ <- parseIgnoreCaseString "false"
     pure $ (SQLSBool ** SQLVBool False)) <|> (do
         _ <- parseIgnoreCaseString "true"
         pure $ (SQLSBool ** SQLVBool True))
     
-parseSQLVNull : Parser (s ** SQLValue s)
+parseSQLVNull : Parser (s ** SQLPrimitiveValue s)
 parseSQLVNull = do
     _ <- parseIgnoreCaseString "null"
     pure (SQLSUnknown ** SQLVNull)
 
-parseSQLValue : Parser (s ** SQLValue s)
-parseSQLValue = parseSQLVString <|> parseSQLVInt <|> parseSQLVBool <|> parseSQLVNull
+parseSQLPrimitiveValue : Parser (s ** SQLPrimitiveValue s)
+parseSQLPrimitiveValue = parseSQLVString <|> parseSQLVInt <|> parseSQLVBool <|> parseSQLVNull
 
 parseColumnList : Parser (List (SQLSchema, SQLName))
 parseColumnList = parseCommaSeparated parseColumnDecl
 
-parseValueList : Parser (List (s ** SQLValue s))
-parseValueList = parseCommaSeparated parseSQLValue
+parseValueList : Parser (List (s ** SQLPrimitiveValue s))
+parseValueList = parseCommaSeparated parseSQLPrimitiveValue
     
 parseCreate : Parser Query
 parseCreate = do

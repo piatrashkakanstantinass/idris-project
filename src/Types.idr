@@ -108,14 +108,14 @@ DecEq SQLSchema where
     decEq SQLSUnknown SQLSBool = No absurd
 
 public export
-data SQLValue : SQLSchema -> Type where
-    SQLVString : String -> SQLValue SQLSString
-    SQLVInt : Int -> SQLValue SQLSInt
-    SQLVBool : Bool -> SQLValue SQLSBool
-    SQLVNull : SQLValue _
+data SQLPrimitiveValue : SQLSchema -> Type where
+    SQLVString : String -> SQLPrimitiveValue SQLSString
+    SQLVInt : Int -> SQLPrimitiveValue SQLSInt
+    SQLVBool : Bool -> SQLPrimitiveValue SQLSBool
+    SQLVNull : SQLPrimitiveValue _
 
 export
-Show (SQLValue _) where
+Show (SQLPrimitiveValue _) where
     show (SQLVString str) = str
     show (SQLVInt i) = show i
     show (SQLVBool x) = show x
@@ -161,16 +161,16 @@ schemaAndNameFromList (x :: xs) = let (nschema ** nnames) = schemaAndNameFromLis
 public export
 data SQLRowValue : SQLRowSchema -> Type where
     RowValueEnd : SQLRowValue RowSchemaEnd
-    RowValueSeq : SQLValue s -> SQLRowValue rest -> SQLRowValue (RowSchemaSeq s rest)
+    RowValueSeq : SQLPrimitiveValue s -> SQLRowValue rest -> SQLRowValue (RowSchemaSeq s rest)
 
 export
-rowValueFromList : List (schema ** SQLValue schema) -> (schema' ** SQLRowValue schema')
+rowValueFromList : List (schema ** SQLPrimitiveValue schema) -> (schema' ** SQLRowValue schema')
 rowValueFromList [] = (RowSchemaEnd ** RowValueEnd)
 rowValueFromList ((schema ** x) :: xs) = let (nschema ** nvalues) = rowValueFromList xs
     in (RowSchemaSeq schema nschema ** RowValueSeq x nvalues)
 
 public export
-rowValueToVect : {s : SQLRowSchema} -> SQLRowValue s -> Vect (rowSchemaSize s) (ss ** SQLValue ss)
+rowValueToVect : {s : SQLRowSchema} -> SQLRowValue s -> Vect (rowSchemaSize s) (ss ** SQLPrimitiveValue ss)
 rowValueToVect RowValueEnd = []
 rowValueToVect {s = RowSchemaSeq sss _} (RowValueSeq x y) = (sss ** x) :: rowValueToVect y
 
@@ -208,7 +208,7 @@ initialDB = MkDB $ fromList [
     ("test", (MkDataFrame (RowSchemaSeq SQLSInt RowSchemaEnd) ["id"] [(RowValueSeq (SQLVInt 123) RowValueEnd)]))
 ]
 
-adaptSchema : {s1: SQLSchema} -> SQLValue s1 -> (s2 : SQLSchema) -> Maybe (SQLValue s2)
+adaptSchema : {s1: SQLSchema} -> SQLPrimitiveValue s1 -> (s2 : SQLSchema) -> Maybe (SQLPrimitiveValue s2)
 adaptSchema SQLVNull _ = Just SQLVNull
 adaptSchema {s1} v s2 = case decEq s1 s2 of
                              (Yes Refl) => Just v
