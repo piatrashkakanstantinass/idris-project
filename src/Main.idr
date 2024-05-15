@@ -20,13 +20,10 @@ displayDataFrame (MkDataFrame schema names rows) = let
     valueCols : {k: Nat} -> List (Vect k a) -> Vect k (List a)
     valueCols xss = map toList $ transpose (fromList xss)
 
-    valueWidth : (s ** SQLPrimitiveValue s) -> Nat
-    valueWidth (_ ** SQLVString str) = length str
-    valueWidth (_ ** SQLVInt i) = length $ show i
-    valueWidth (_ ** SQLVBool x) = length $ show x
-    valueWidth (_ ** SQLVNull) = 4
+    valueWidth : (s ** SQLValue s) -> Nat
+    valueWidth (_ ** v) = length $ show v
 
-    valueColWidth : List (s ** SQLPrimitiveValue s) -> Nat
+    valueColWidth : List (s ** SQLValue s) -> Nat
     valueColWidth xs = foldl maximum 0 $ map valueWidth xs
 
     separatorLine' : Vect k Nat -> String
@@ -43,7 +40,7 @@ displayDataFrame (MkDataFrame schema names rows) = let
     header : (cols: Vect k SQLName) -> (sizes: Vect k Nat) -> String
     header cols sizes = separatorLine sizes ++ valueStr (map show cols) sizes ++ "\n" ++ separatorLine sizes
 
-    tableRows : (rows: List (Vect k (s ** SQLPrimitiveValue s))) -> (sizes: Vect k Nat) -> String
+    tableRows : (rows: List (Vect k (s ** SQLValue s))) -> (sizes: Vect k Nat) -> String
     tableRows [] _ = ""
     tableRows (x :: xs) sizes = valueStr (map (\(_ ** v) => show v) x) sizes ++ "\n" ++ separatorLine sizes ++ tableRows xs sizes
 

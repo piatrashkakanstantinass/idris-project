@@ -4,6 +4,7 @@ import Data.SortedMap
 import Data.Vect
 import Data.String
 import Decidable.Equality.Core
+import Decidable.Equality
 
 %default total
 
@@ -122,7 +123,29 @@ Show (SQLPrimitiveValue _) where
     show SQLVNull = "null"
 
 public export
-data SQLRowSchema = RowSchemaEnd | RowSchemaSeq SQLPrimitiveSchema SQLRowSchema
+record SQLSchema where
+    constructor MkSQLSchema
+    nullable : Bool
+    primitiveSchema : SQLPrimitiveSchema
+
+DecEq SQLSchema where
+    decEq (MkSQLSchema nullable1 primitiveSchema1) (MkSQLSchema nullable2 primitiveSchema2) =
+        case decEq nullable1 nullable2 of
+             (Yes Refl) => case decEq primitiveSchema1 primitiveSchema2 of
+                               (Yes Refl) => Yes Refl
+                               (No contra) => No (\Refl => contra Refl)
+             (No contra) => No (\Refl => contra Refl)
+
+public export
+data SQLValue : SQLSchema -> Type where
+    NotNull : SQLPrimitiveValue s -> SQLValue (MkSQLSchema _ s)
+
+export
+Show (SQLValue _) where
+    show (NotNull x) = show x
+
+public export
+data SQLRowSchema = RowSchemaEnd | RowSchemaSeq SQLSchema SQLRowSchema
 
 Uninhabited (RowSchemaEnd = (RowSchemaSeq _ _)) where
     uninhabited Refl impossible
@@ -153,7 +176,7 @@ rowSchemaSize RowSchemaEnd = 0
 rowSchemaSize (RowSchemaSeq _ y) = 1 + rowSchemaSize y
 
 export
-schemaAndNameFromList : List (SQLPrimitiveSchema, SQLName) -> (schema ** Vect (rowSchemaSize schema) SQLName)
+schemaAndNameFromList : List (SQLSchema, SQLName) -> (schema ** Vect (rowSchemaSize schema) SQLName)
 schemaAndNameFromList [] = (RowSchemaEnd ** [])
 schemaAndNameFromList (x :: xs) = let (nschema ** nnames) = schemaAndNameFromList xs
     in (RowSchemaSeq (fst x) nschema ** (snd x :: nnames))
@@ -161,10 +184,10 @@ schemaAndNameFromList (x :: xs) = let (nschema ** nnames) = schemaAndNameFromLis
 public export
 data SQLRowValue : SQLRowSchema -> Type where
     RowValueEnd : SQLRowValue RowSchemaEnd
-    RowValueSeq : SQLPrimitiveValue s -> SQLRowValue rest -> SQLRowValue (RowSchemaSeq s rest)
+    RowValueSeq : SQLValue s -> SQLRowValue rest -> SQLRowValue (RowSchemaSeq s rest)
 
 public export
-rowValueToVect : {s : SQLRowSchema} -> SQLRowValue s -> Vect (rowSchemaSize s) (ss ** SQLPrimitiveValue ss)
+rowValueToVect : {s : SQLRowSchema} -> SQLRowValue s -> Vect (rowSchemaSize s) (ss ** SQLValue ss)
 rowValueToVect RowValueEnd = []
 rowValueToVect {s = RowSchemaSeq sss _} (RowValueSeq x y) = (sss ** x) :: rowValueToVect y
 
@@ -199,23 +222,26 @@ dfInsert (MkDataFrame schema names rows) x = MkDataFrame schema names $ rows ++ 
 
 export initialDB : DB
 initialDB = MkDB $ fromList [
-    ("test", (MkDataFrame (RowSchemaSeq SQLSInt RowSchemaEnd) ["id"] [(RowValueSeq (SQLVInt 123) RowValueEnd)]))
+    ("test", (MkDataFrame (RowSchemaSeq (MkSQLSchema True SQLSInt) RowSchemaEnd) ["id"] [(RowValueSeq (NotNull (SQLVInt 123)) RowValueEnd)]))
 ]
 
 public export
 data SQLQueryValue = SQLQVString String | SQLQVInt Int | SQLQVBool Bool | SQLQVNull
 
-adaptSchema : (s : SQLPrimitiveSchema) -> SQLQueryValue -> Maybe (SQLPrimitiveValue s)
-adaptSchema SQLSString (SQLQVString str) = Just (SQLVString str)
-adaptSchema SQLSInt (SQLQVInt i) = Just (SQLVInt i)
-adaptSchema SQLSBool (SQLQVBool b) = Just (SQLVBool b)
-adaptSchema _ SQLQVNull = Just SQLVNull
+adaptSchema : (s : SQLSchema) -> SQLQueryValue -> Maybe (SQLValue s)
+adaptSchema (MkSQLSchema nullable SQLSString) (SQLQVString str) = Just $ NotNull (SQLVString str)
+adaptSchema (MkSQLSchema nullable SQLSInt) (SQLQVInt i) = Just $ NotNull (SQLVInt i)
+adaptSchema (MkSQLSchema nullable SQLSBool) (SQLQVBool b) = Just $ NotNull (SQLVBool b)
+adaptSchema (MkSQLSchema True _) SQLQVNull = Just $ NotNull SQLVNull
 adaptSchema _ _ = Nothing
 
 export
 adaptRow : (s : SQLRowSchema) -> List SQLQueryValue -> Maybe (SQLRowValue s)
 adaptRow RowSchemaEnd [] = Just RowValueEnd
 adaptRow RowSchemaEnd _ = Nothing
+adaptRow (RowSchemaSeq (MkSQLSchema True _) y) [] = case adaptRow y [] of
+                                      Nothing => Nothing
+                                      (Just z) => Just (RowValueSeq (NotNull SQLVNull) z)
 adaptRow (RowSchemaSeq _ _) [] = Nothing
 adaptRow (RowSchemaSeq x y) (z :: xs) = case adaptSchema x z of
                                              Nothing => Nothing

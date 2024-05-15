@@ -119,12 +119,12 @@ parseSQLPrimitiveSchema = parseName >>= \name => MkParser $ \inp =>
     else if name == "bool" then Right (inp, SQLSBool)
     else Left "SQL type expected"
 
-parseColumnDecl : Parser (SQLPrimitiveSchema, SQLName)
+parseColumnDecl : Parser (SQLSchema, SQLName)
 parseColumnDecl = do
     name <- parseName
     _ <- parseWhitespace
     schema <- parseSQLPrimitiveSchema
-    pure (schema, name)
+    pure (MkSQLSchema True schema, name)
 
 parseInt : Parser Int
 parseInt = MkParser $ \inp => let
@@ -161,7 +161,7 @@ parseSQLVNull = do
 parseSQLQueryValue : Parser (SQLQueryValue)
 parseSQLQueryValue = parseSQLVString <|> parseSQLVInt <|> parseSQLVBool <|> parseSQLVNull
 
-parseColumnList : Parser (List (SQLPrimitiveSchema, SQLName))
+parseColumnList : Parser (List (SQLSchema, SQLName))
 parseColumnList = parseCommaSeparated parseColumnDecl
 
 parseValueList : Parser (List (SQLQueryValue))
