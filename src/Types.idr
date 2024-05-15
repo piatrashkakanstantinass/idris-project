@@ -88,14 +88,12 @@ data SQLPrimitiveValue : SQLPrimitiveSchema -> Type where
     SQLVString : String -> SQLPrimitiveValue SQLSString
     SQLVInt : Int -> SQLPrimitiveValue SQLSInt
     SQLVBool : Bool -> SQLPrimitiveValue SQLSBool
-    SQLVNull : SQLPrimitiveValue _
 
 export
 Show (SQLPrimitiveValue _) where
     show (SQLVString str) = str
     show (SQLVInt i) = show i
     show (SQLVBool x) = show x
-    show SQLVNull = "null"
 
 public export
 record SQLSchema where
@@ -114,10 +112,12 @@ DecEq SQLSchema where
 public export
 data SQLValue : SQLSchema -> Type where
     NotNull : SQLPrimitiveValue s -> SQLValue (MkSQLSchema _ s)
+    Null : SQLValue (MkSQLSchema True _)
 
 export
 Show (SQLValue _) where
     show (NotNull x) = show x
+    show Null = "null"
 
 public export
 data SQLRowSchema = RowSchemaEnd | RowSchemaSeq SQLSchema SQLRowSchema
@@ -207,7 +207,7 @@ adaptSchema : (s : SQLSchema) -> SQLQueryValue -> Maybe (SQLValue s)
 adaptSchema (MkSQLSchema nullable SQLSString) (SQLQVString str) = Just $ NotNull (SQLVString str)
 adaptSchema (MkSQLSchema nullable SQLSInt) (SQLQVInt i) = Just $ NotNull (SQLVInt i)
 adaptSchema (MkSQLSchema nullable SQLSBool) (SQLQVBool b) = Just $ NotNull (SQLVBool b)
-adaptSchema (MkSQLSchema True _) SQLQVNull = Just $ NotNull SQLVNull
+adaptSchema (MkSQLSchema True _) SQLQVNull = Just $ Null
 adaptSchema _ _ = Nothing
 
 export
@@ -216,7 +216,7 @@ adaptRow RowSchemaEnd [] = Just RowValueEnd
 adaptRow RowSchemaEnd _ = Nothing
 adaptRow (RowSchemaSeq (MkSQLSchema True _) y) [] = case adaptRow y [] of
                                       Nothing => Nothing
-                                      (Just z) => Just (RowValueSeq (NotNull SQLVNull) z)
+                                      (Just z) => Just (RowValueSeq Null z)
 adaptRow (RowSchemaSeq _ _) [] = Nothing
 adaptRow (RowSchemaSeq x y) (z :: xs) = case adaptSchema x z of
                                              Nothing => Nothing
