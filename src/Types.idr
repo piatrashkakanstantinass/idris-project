@@ -44,10 +44,10 @@ length : SQLName -> Nat
 length (Name str) = String.length str
 
 public export
-data SQLSchema = SQLSString | SQLSInt | SQLSBool | SQLSUnknown
+data SQLPrimitiveSchema = SQLSString | SQLSInt | SQLSBool | SQLSUnknown
 
 export
-Eq SQLSchema where
+Eq SQLPrimitiveSchema where
     SQLSString == SQLSString = True
     SQLSInt == SQLSInt = True
     SQLSBool == SQLSBool = True
@@ -89,7 +89,7 @@ Uninhabited (SQLSUnknown = SQLSInt) where
 Uninhabited (SQLSUnknown = SQLSBool) where
     uninhabited Refl impossible
 
-DecEq SQLSchema where
+DecEq SQLPrimitiveSchema where
     decEq SQLSString SQLSString = Yes Refl
     decEq SQLSString SQLSInt = No absurd
     decEq SQLSString SQLSBool = No absurd
@@ -108,7 +108,7 @@ DecEq SQLSchema where
     decEq SQLSUnknown SQLSBool = No absurd
 
 public export
-data SQLPrimitiveValue : SQLSchema -> Type where
+data SQLPrimitiveValue : SQLPrimitiveSchema -> Type where
     SQLVString : String -> SQLPrimitiveValue SQLSString
     SQLVInt : Int -> SQLPrimitiveValue SQLSInt
     SQLVBool : Bool -> SQLPrimitiveValue SQLSBool
@@ -122,7 +122,7 @@ Show (SQLPrimitiveValue _) where
     show SQLVNull = "null"
 
 public export
-data SQLRowSchema = RowSchemaEnd | RowSchemaSeq SQLSchema SQLRowSchema
+data SQLRowSchema = RowSchemaEnd | RowSchemaSeq SQLPrimitiveSchema SQLRowSchema
 
 Uninhabited (RowSchemaEnd = (RowSchemaSeq _ _)) where
     uninhabited Refl impossible
@@ -153,7 +153,7 @@ rowSchemaSize RowSchemaEnd = 0
 rowSchemaSize (RowSchemaSeq _ y) = 1 + rowSchemaSize y
 
 export
-schemaAndNameFromList : List (SQLSchema, SQLName) -> (schema ** Vect (rowSchemaSize schema) SQLName)
+schemaAndNameFromList : List (SQLPrimitiveSchema, SQLName) -> (schema ** Vect (rowSchemaSize schema) SQLName)
 schemaAndNameFromList [] = (RowSchemaEnd ** [])
 schemaAndNameFromList (x :: xs) = let (nschema ** nnames) = schemaAndNameFromList xs
     in (RowSchemaSeq (fst x) nschema ** (snd x :: nnames))
@@ -208,7 +208,7 @@ initialDB = MkDB $ fromList [
     ("test", (MkDataFrame (RowSchemaSeq SQLSInt RowSchemaEnd) ["id"] [(RowValueSeq (SQLVInt 123) RowValueEnd)]))
 ]
 
-adaptSchema : {s1: SQLSchema} -> SQLPrimitiveValue s1 -> (s2 : SQLSchema) -> Maybe (SQLPrimitiveValue s2)
+adaptSchema : {s1: SQLPrimitiveSchema} -> SQLPrimitiveValue s1 -> (s2 : SQLPrimitiveSchema) -> Maybe (SQLPrimitiveValue s2)
 adaptSchema SQLVNull _ = Just SQLVNull
 adaptSchema {s1} v s2 = case decEq s1 s2 of
                              (Yes Refl) => Just v

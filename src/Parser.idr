@@ -112,18 +112,18 @@ parseSelect = do
     name <- parseName
     pure $ Select name
 
-parseSQLSchema: Parser SQLSchema
-parseSQLSchema = parseName >>= \name => MkParser $ \inp =>
+parseSQLPrimitiveSchema: Parser SQLPrimitiveSchema
+parseSQLPrimitiveSchema = parseName >>= \name => MkParser $ \inp =>
     if name == "string" then Right (inp, SQLSString)
     else if name == "int" then Right (inp, SQLSInt)
     else if name == "bool" then Right (inp, SQLSBool)
     else Left "SQL type expected"
 
-parseColumnDecl : Parser (SQLSchema, SQLName)
+parseColumnDecl : Parser (SQLPrimitiveSchema, SQLName)
 parseColumnDecl = do
     name <- parseName
     _ <- parseWhitespace
-    schema <- parseSQLSchema
+    schema <- parseSQLPrimitiveSchema
     pure (schema, name)
 
 parseInt : Parser Int
@@ -161,7 +161,7 @@ parseSQLVNull = do
 parseSQLPrimitiveValue : Parser (s ** SQLPrimitiveValue s)
 parseSQLPrimitiveValue = parseSQLVString <|> parseSQLVInt <|> parseSQLVBool <|> parseSQLVNull
 
-parseColumnList : Parser (List (SQLSchema, SQLName))
+parseColumnList : Parser (List (SQLPrimitiveSchema, SQLName))
 parseColumnList = parseCommaSeparated parseColumnDecl
 
 parseValueList : Parser (List (s ** SQLPrimitiveValue s))
