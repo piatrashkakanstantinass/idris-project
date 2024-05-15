@@ -45,7 +45,7 @@ length : SQLName -> Nat
 length (Name str) = String.length str
 
 public export
-data SQLPrimitiveSchema = SQLSString | SQLSInt | SQLSBool | SQLSUnknown
+data SQLPrimitiveSchema = SQLSString | SQLSInt | SQLSBool
 
 export
 Eq SQLPrimitiveSchema where
@@ -72,24 +72,6 @@ Uninhabited (SQLSBool = SQLSString) where
 Uninhabited (SQLSBool = SQLSInt) where
     uninhabited Refl impossible
 
-Uninhabited (SQLSString = SQLSUnknown) where
-    uninhabited Refl impossible
-
-Uninhabited (SQLSInt = SQLSUnknown) where
-    uninhabited Refl impossible
-
-Uninhabited (SQLSBool = SQLSUnknown) where
-    uninhabited Refl impossible
-
-Uninhabited (SQLSUnknown = SQLSString) where
-    uninhabited Refl impossible
-
-Uninhabited (SQLSUnknown = SQLSInt) where
-    uninhabited Refl impossible
-
-Uninhabited (SQLSUnknown = SQLSBool) where
-    uninhabited Refl impossible
-
 DecEq SQLPrimitiveSchema where
     decEq SQLSString SQLSString = Yes Refl
     decEq SQLSString SQLSInt = No absurd
@@ -100,13 +82,6 @@ DecEq SQLPrimitiveSchema where
     decEq SQLSBool SQLSString = No absurd
     decEq SQLSBool SQLSInt = No absurd
     decEq SQLSBool SQLSBool = Yes Refl
-    decEq SQLSString SQLSUnknown = No absurd
-    decEq SQLSInt SQLSUnknown = No absurd
-    decEq SQLSBool SQLSUnknown = No absurd
-    decEq SQLSUnknown SQLSUnknown = Yes Refl
-    decEq SQLSUnknown SQLSString = No absurd
-    decEq SQLSUnknown SQLSInt = No absurd
-    decEq SQLSUnknown SQLSBool = No absurd
 
 public export
 data SQLPrimitiveValue : SQLPrimitiveSchema -> Type where
