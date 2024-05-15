@@ -134,38 +134,38 @@ parseInt = MkParser $ \inp => let
         Nothing => Left "Int value expected"
         (Just v) => Right (drop (length cs) inp, v)
 
-parseSQLVString : Parser (s ** SQLPrimitiveValue s)
+parseSQLVString : Parser SQLQueryValue
 parseSQLVString = parseLeftRight (parseChar '"') (parseChar '"') (MkParser $ \inp =>
     let res = takeWhile (\c => not (isSpace c || c == ',' || c == '"')) inp
     in case null res of
         True => Left "SQL String value expected"
-        False => Right (drop (length res) inp, (SQLSString ** SQLVString (pack res))))
+        False => Right (drop (length res) inp, SQLQVString (pack res)))
 
-parseSQLVInt : Parser (s ** SQLPrimitiveValue s)
+parseSQLVInt : Parser SQLQueryValue
 parseSQLVInt = do
     i <- parseInt
-    pure $ (SQLSInt ** SQLVInt i)
+    pure $ SQLQVInt i
 
-parseSQLVBool : Parser (s ** SQLPrimitiveValue s)
+parseSQLVBool : Parser SQLQueryValue
 parseSQLVBool = (do
     _ <- parseIgnoreCaseString "false"
-    pure $ (SQLSBool ** SQLVBool False)) <|> (do
+    pure $ SQLQVBool False) <|> (do
         _ <- parseIgnoreCaseString "true"
-        pure $ (SQLSBool ** SQLVBool True))
+        pure $ SQLQVBool True)
     
-parseSQLVNull : Parser (s ** SQLPrimitiveValue s)
+parseSQLVNull : Parser SQLQueryValue
 parseSQLVNull = do
     _ <- parseIgnoreCaseString "null"
-    pure (SQLSUnknown ** SQLVNull)
+    pure SQLQVNull
 
-parseSQLPrimitiveValue : Parser (s ** SQLPrimitiveValue s)
-parseSQLPrimitiveValue = parseSQLVString <|> parseSQLVInt <|> parseSQLVBool <|> parseSQLVNull
+parseSQLQueryValue : Parser (SQLQueryValue)
+parseSQLQueryValue = parseSQLVString <|> parseSQLVInt <|> parseSQLVBool <|> parseSQLVNull
 
 parseColumnList : Parser (List (SQLPrimitiveSchema, SQLName))
 parseColumnList = parseCommaSeparated parseColumnDecl
 
-parseValueList : Parser (List (s ** SQLPrimitiveValue s))
-parseValueList = parseCommaSeparated parseSQLPrimitiveValue
+parseValueList : Parser (List (SQLQueryValue))
+parseValueList = parseCommaSeparated parseSQLQueryValue
     
 parseCreate : Parser Query
 parseCreate = do
@@ -190,7 +190,7 @@ parseInsert = do
     _ <- parseIgnoreCaseString "values"
     _ <- optional parseWhitespace
     values <- parseInParantheses parseValueList
-    pure $ Insert name (rowValueFromList values)
+    pure $ Insert name values
 
 
 parseQuery' : Parser Query

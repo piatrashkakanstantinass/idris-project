@@ -61,9 +61,9 @@ processQuery db (Create name df) =
     case dbInsert db name df of
          Nothing => Left "Table exists"
          (Just newDb) => Right (newDb, SimpleOutput "Created.")
-processQuery db (Insert name (s ** v)) = do
+processQuery db (Insert name values) = do
     df <- lookupTable db name
-    case fixUnknownsInRowValue v df.schema of
+    case adaptRow df.schema values of
          Nothing => Left "Schema does not match"
          Just v' => Right (dbUpdate db name (dfInsert df v'), SimpleOutput "Inserted.")
 

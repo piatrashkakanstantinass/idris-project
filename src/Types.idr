@@ -163,12 +163,6 @@ data SQLRowValue : SQLRowSchema -> Type where
     RowValueEnd : SQLRowValue RowSchemaEnd
     RowValueSeq : SQLPrimitiveValue s -> SQLRowValue rest -> SQLRowValue (RowSchemaSeq s rest)
 
-export
-rowValueFromList : List (schema ** SQLPrimitiveValue schema) -> (schema' ** SQLRowValue schema')
-rowValueFromList [] = (RowSchemaEnd ** RowValueEnd)
-rowValueFromList ((schema ** x) :: xs) = let (nschema ** nvalues) = rowValueFromList xs
-    in (RowSchemaSeq schema nschema ** RowValueSeq x nvalues)
-
 public export
 rowValueToVect : {s : SQLRowSchema} -> SQLRowValue s -> Vect (rowSchemaSize s) (ss ** SQLPrimitiveValue ss)
 rowValueToVect RowValueEnd = []
@@ -208,24 +202,26 @@ initialDB = MkDB $ fromList [
     ("test", (MkDataFrame (RowSchemaSeq SQLSInt RowSchemaEnd) ["id"] [(RowValueSeq (SQLVInt 123) RowValueEnd)]))
 ]
 
-adaptSchema : {s1: SQLPrimitiveSchema} -> SQLPrimitiveValue s1 -> (s2 : SQLPrimitiveSchema) -> Maybe (SQLPrimitiveValue s2)
-adaptSchema SQLVNull _ = Just SQLVNull
-adaptSchema {s1} v s2 = case decEq s1 s2 of
-                             (Yes Refl) => Just v
-                             (No contra) => Nothing
+public export
+data SQLQueryValue = SQLQVString String | SQLQVInt Int | SQLQVBool Bool | SQLQVNull
+
+adaptSchema : (s : SQLPrimitiveSchema) -> SQLQueryValue -> Maybe (SQLPrimitiveValue s)
+adaptSchema SQLSString (SQLQVString str) = Just (SQLVString str)
+adaptSchema SQLSInt (SQLQVInt i) = Just (SQLVInt i)
+adaptSchema SQLSBool (SQLQVBool b) = Just (SQLVBool b)
+adaptSchema _ SQLQVNull = Just SQLVNull
+adaptSchema _ _ = Nothing
 
 export
-fixUnknownsInRowValue : {s1 : SQLRowSchema} -> SQLRowValue s1 -> (s2 : SQLRowSchema) -> Maybe (SQLRowValue s2)
-fixUnknownsInRowValue RowValueEnd RowSchemaEnd = Just RowValueEnd
-fixUnknownsInRowValue RowValueEnd (RowSchemaSeq x y) = case fixUnknownsInRowValue RowValueEnd y of
-                                                            Nothing => Nothing
-                                                            (Just z) => Just (RowValueSeq SQLVNull z)
-fixUnknownsInRowValue (RowValueSeq x y) RowSchemaEnd = Nothing
-fixUnknownsInRowValue (RowValueSeq x y) (RowSchemaSeq z w) = case fixUnknownsInRowValue y w of
-                                                                  Nothing => Nothing
-                                                                  (Just v) => case adaptSchema x z of
-                                                                                   Nothing => Nothing
-                                                                                   (Just s) => Just (RowValueSeq s v)
+adaptRow : (s : SQLRowSchema) -> List SQLQueryValue -> Maybe (SQLRowValue s)
+adaptRow RowSchemaEnd [] = Just RowValueEnd
+adaptRow RowSchemaEnd _ = Nothing
+adaptRow (RowSchemaSeq _ _) [] = Nothing
+adaptRow (RowSchemaSeq x y) (z :: xs) = case adaptSchema x z of
+                                             Nothing => Nothing
+                                             (Just w) => case adaptRow y xs of
+                                                              Nothing => Nothing
+                                                              (Just v) => Just (RowValueSeq w v)
 
 public export
-data Query = Select SQLName | Create SQLName DataFrame | Insert SQLName (rowSchema ** SQLRowValue rowSchema)
+data Query = Select SQLName | Create SQLName DataFrame | Insert SQLName (List SQLQueryValue)
