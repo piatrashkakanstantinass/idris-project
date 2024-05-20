@@ -124,7 +124,16 @@ parseColumnDecl = do
     name <- parseName
     _ <- parseWhitespace
     schema <- parseSQLPrimitiveSchema
-    pure (MkSQLSchema True schema, name)
+    null <- optional (do
+        _ <- parseWhitespace
+        _ <- parseIgnoreCaseString "not"
+        _ <- parseWhitespace
+        _ <- parseIgnoreCaseString "null"
+        pure False
+        )
+    case null of
+         Nothing => pure (MkSQLSchema True schema, name)
+         (Just x) => pure (MkSQLSchema False schema, name)
 
 parseInt : Parser Int
 parseInt = MkParser $ \inp => let
