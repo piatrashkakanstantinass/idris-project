@@ -226,3 +226,25 @@ adaptRow (RowSchemaSeq x y) (z :: xs) = case adaptSchema x z of
 
 public export
 data Query = Select SQLName | Create SQLName DataFrame | Insert SQLName (List SQLQueryValue)
+
+public export
+data DataFrameWidths : DataFrame -> Type where
+    DfWidths : (df : DataFrame) -> Vect n Nat -> n = rowSchemaSize df.schema -> DataFrameWidths df
+
+valueCols : {k: Nat} -> List (Vect k a) -> Vect k (List a)
+valueCols xss = map toList $ transpose (fromList xss)
+
+valueWidth : (s ** SQLValue s) -> Nat
+valueWidth (_ ** v) = length $ show v
+
+valueColWidth : List (s ** SQLValue s) -> Nat
+valueColWidth xs = foldl maximum 0 $ map valueWidth xs
+
+export
+dataFrameWidths : (df : DataFrame) -> DataFrameWidths df
+dataFrameWidths d @ (MkDataFrame schema names rows) = let
+    headerColWidths = map length names
+    rows' = map (\r => rowValueToVect r) rows
+    valueColWidths = map valueColWidth (valueCols rows')
+    colWidths = map (\(a,b) => maximum a b) $ zip headerColWidths valueColWidths
+    in DfWidths d colWidths Refl

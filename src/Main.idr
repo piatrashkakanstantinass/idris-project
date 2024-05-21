@@ -10,21 +10,11 @@ import Decidable.Equality.Core
 %default total
 
 displayDataFrame : DataFrame -> String
-displayDataFrame (MkDataFrame schema names rows) = let
-    headerColWidths = map length names
+displayDataFrame df with (dataFrameWidths df)
+  displayDataFrame (MkDataFrame schema names rows) | (DfWidths (MkDataFrame schema names rows) colWidths Refl) = let
     rows' = map (\r => rowValueToVect r) rows
-    valueColWidths = map valueColWidth (valueCols rows')
-    colWidths = map (\(a,b) => maximum a b) $ zip headerColWidths valueColWidths
     in header names colWidths ++ tableRows rows' colWidths
     where
-    valueCols : {k: Nat} -> List (Vect k a) -> Vect k (List a)
-    valueCols xss = map toList $ transpose (fromList xss)
-
-    valueWidth : (s ** SQLValue s) -> Nat
-    valueWidth (_ ** v) = length $ show v
-
-    valueColWidth : List (s ** SQLValue s) -> Nat
-    valueColWidth xs = foldl maximum 0 $ map valueWidth xs
 
     separatorLine' : Vect k Nat -> String
     separatorLine' [] = "+"
