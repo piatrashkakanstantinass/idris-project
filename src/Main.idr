@@ -43,7 +43,7 @@ lookupTable db name =
         (Just y) => Right y
 
 processQuery : DB -> Query -> Either ErrorMessage (DB, QueryResult)
-processQuery db (Select x All) = lookupTable db x >>= (\t => pure (db, Table t))
+processQuery db (Select x _) = lookupTable db x >>= (\t => pure (db, Table t))
 processQuery db (Create name df) =
     case dbInsert db name df of
          Nothing => Left "Table exists"

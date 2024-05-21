@@ -224,7 +224,7 @@ adaptRow (RowSchemaSeq x y) (z :: xs) = case adaptSchema x z of
                                                               Nothing => Nothing
                                                               (Just v) => Just (RowValueSeq w v)
 public export
-data SelectCols = All
+data SelectCols = All | SpecificCols (List SQLName)
 
 public export
 data Query = Select SQLName SelectCols | Create SQLName DataFrame | Insert SQLName (List SQLQueryValue)

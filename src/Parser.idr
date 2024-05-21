@@ -101,16 +101,26 @@ parseSeparatedBy by p = MkParser $ \inp =>
 parseCommaSeparated: Parser a -> Parser (List a)
 parseCommaSeparated p = parseSeparatedBy (parseInOptSpace $ parseChar ',') p
 
+parseSelectAll : Parser SelectCols
+parseSelectAll = do
+    _ <- parseIgnoreCaseString "*"
+    pure All
+
+parseSelectSpecific : Parser SelectCols
+parseSelectSpecific = do
+    names <- parseCommaSeparated parseName
+    pure (SpecificCols names)
+
 parseSelect : Parser Query
 parseSelect = do
     _ <- parseIgnoreCaseString "select"
     _ <- parseWhitespace
-    _ <- parseIgnoreCaseString "*"
+    selectCols <- parseSelectAll <|> parseSelectSpecific
     _ <- parseWhitespace
     _ <- parseIgnoreCaseString "from"
     _ <- parseWhitespace
     name <- parseName
-    pure $ Select name All
+    pure $ Select name selectCols
 
 parseSQLPrimitiveSchema: Parser SQLPrimitiveSchema
 parseSQLPrimitiveSchema = parseName >>= \name => MkParser $ \inp =>
