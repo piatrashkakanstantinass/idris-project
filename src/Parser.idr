@@ -145,7 +145,7 @@ parseInt = MkParser $ \inp => let
 
 parseSQLVString : Parser SQLQueryValue
 parseSQLVString = parseLeftRight (parseChar '"') (parseChar '"') (MkParser $ \inp =>
-    let res = takeWhile (\c => not (isSpace c || c == ',' || c == '"')) inp
+    let res = takeWhile (\c => not (c == '"')) inp
     in case null res of
         True => Left "SQL String value expected"
         False => Right (drop (length res) inp, SQLQVString (pack res)))
