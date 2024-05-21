@@ -110,7 +110,7 @@ parseSelect = do
     _ <- parseIgnoreCaseString "from"
     _ <- parseWhitespace
     name <- parseName
-    pure $ Select name
+    pure $ Select name All
 
 parseSQLPrimitiveSchema: Parser SQLPrimitiveSchema
 parseSQLPrimitiveSchema = parseName >>= \name => MkParser $ \inp =>

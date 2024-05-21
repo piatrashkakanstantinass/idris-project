@@ -223,9 +223,11 @@ adaptRow (RowSchemaSeq x y) (z :: xs) = case adaptSchema x z of
                                              (Just w) => case adaptRow y xs of
                                                               Nothing => Nothing
                                                               (Just v) => Just (RowValueSeq w v)
+public export
+data SelectCols = All
 
 public export
-data Query = Select SQLName | Create SQLName DataFrame | Insert SQLName (List SQLQueryValue)
+data Query = Select SQLName SelectCols | Create SQLName DataFrame | Insert SQLName (List SQLQueryValue)
 
 public export
 data DataFrameWidths : DataFrame -> Type where
