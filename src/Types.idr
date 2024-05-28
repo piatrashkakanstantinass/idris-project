@@ -157,6 +157,7 @@ initialDB = MkDB $ fromList [
 public export
 data SQLQueryValue = SQLQVString String | SQLQVInt Int | SQLQVBool Bool | SQLQVNull
 
+public export
 adaptSchema : (s : SQLSchema) -> SQLQueryValue -> Maybe (SQLValue s)
 adaptSchema (MkSQLSchema nullable SQLSString) (SQLQVString str) = Just $ NotNull (SQLVString str)
 adaptSchema (MkSQLSchema nullable SQLSInt) (SQLQVInt i) = Just $ NotNull (SQLVInt i)
@@ -164,7 +165,7 @@ adaptSchema (MkSQLSchema nullable SQLSBool) (SQLQVBool b) = Just $ NotNull (SQLV
 adaptSchema (MkSQLSchema True _) SQLQVNull = Just $ Null
 adaptSchema _ _ = Nothing
 
-export
+public export
 adaptRow : (s : SQLRowSchema) -> List SQLQueryValue -> Maybe (SQLRowValue s)
 adaptRow RowSchemaEnd [] = Just RowValueEnd
 adaptRow RowSchemaEnd _ = Nothing
