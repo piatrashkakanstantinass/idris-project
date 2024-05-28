@@ -3,8 +3,6 @@ module Types
 import Data.SortedMap
 import Data.Vect
 import Data.String
-import Decidable.Equality.Core
-import Decidable.Equality
 
 %default total
 
@@ -54,35 +52,6 @@ Eq SQLPrimitiveSchema where
     SQLSBool == SQLSBool = True
     _ == _ = False
 
-Uninhabited (SQLSString = SQLSInt) where
-    uninhabited Refl impossible
-
-Uninhabited (SQLSString = SQLSBool) where
-    uninhabited Refl impossible
-
-Uninhabited (SQLSInt = SQLSString) where
-    uninhabited Refl impossible
-
-Uninhabited (SQLSInt = SQLSBool) where
-    uninhabited Refl impossible
-
-Uninhabited (SQLSBool = SQLSString) where
-    uninhabited Refl impossible
-
-Uninhabited (SQLSBool = SQLSInt) where
-    uninhabited Refl impossible
-
-DecEq SQLPrimitiveSchema where
-    decEq SQLSString SQLSString = Yes Refl
-    decEq SQLSString SQLSInt = No absurd
-    decEq SQLSString SQLSBool = No absurd
-    decEq SQLSInt SQLSString = No absurd
-    decEq SQLSInt SQLSInt = Yes Refl
-    decEq SQLSInt SQLSBool = No absurd
-    decEq SQLSBool SQLSString = No absurd
-    decEq SQLSBool SQLSInt = No absurd
-    decEq SQLSBool SQLSBool = Yes Refl
-
 public export
 data SQLPrimitiveValue : SQLPrimitiveSchema -> Type where
     SQLVString : String -> SQLPrimitiveValue SQLSString
@@ -100,14 +69,6 @@ record SQLSchema where
     constructor MkSQLSchema
     nullable : Bool
     primitiveSchema : SQLPrimitiveSchema
-
-DecEq SQLSchema where
-    decEq (MkSQLSchema nullable1 primitiveSchema1) (MkSQLSchema nullable2 primitiveSchema2) =
-        case decEq nullable1 nullable2 of
-             (Yes Refl) => case decEq primitiveSchema1 primitiveSchema2 of
-                               (Yes Refl) => Yes Refl
-                               (No contra) => No (\Refl => contra Refl)
-             (No contra) => No (\Refl => contra Refl)
 
 public export
 data SQLValue : SQLSchema -> Type where
@@ -133,17 +94,6 @@ headUnequalSQLRow contr _ _ Refl = contr Refl
 
 tailUnequalSQLRow : (xs : SQLRowSchema) -> (ys : SQLRowSchema) -> (contr : xs = ys -> Void) -> ((RowSchemaSeq x xs) = (RowSchemaSeq y ys) -> Void)
 tailUnequalSQLRow _ _ contr Refl = contr Refl
-
-export
-DecEq SQLRowSchema where
-    decEq RowSchemaEnd RowSchemaEnd = Yes Refl
-    decEq RowSchemaEnd (RowSchemaSeq x y) = No absurd
-    decEq (RowSchemaSeq x y) RowSchemaEnd = No absurd
-    decEq (RowSchemaSeq x y) (RowSchemaSeq z w) = case decEq x z of
-                                                       (Yes Refl) => case decEq y w of
-                                                                         (Yes Refl) => Yes Refl
-                                                                         (No contra) => No (tailUnequalSQLRow y w contra)
-                                                       (No contra) => No (headUnequalSQLRow contra y w)
 
 public export
 rowSchemaSize : SQLRowSchema -> Nat

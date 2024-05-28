@@ -5,7 +5,6 @@ import Data.Vect
 import Data.List
 import Types
 import Parser
-import Decidable.Equality.Core
 
 %default total
 
