@@ -211,11 +211,29 @@ parseInsert = do
     values <- parseInParantheses parseValueList
     pure $ Insert name values
 
+parseLockedStateChange : Parser DataFrameState
+parseLockedStateChange = do
+    _ <- parseIgnoreCaseString "lock"
+    pure Locked
+
+parseUnlockedStateChange: Parser DataFrameState
+parseUnlockedStateChange = do
+    _ <- parseIgnoreCaseString "unlock"
+    pure Unlocked
+
+parseLockChange : Parser Query
+parseLockChange = do
+    state <- parseLockedStateChange <|> parseUnlockedStateChange
+    _ <- parseWhitespace
+    _ <- parseIgnoreCaseString "table"
+    _ <- parseWhitespace
+    name <- parseName
+    pure $ LockChange name state
 
 parseQuery' : Parser Query
 parseQuery' = do
     _ <- optional parseWhitespace
-    q <- parseSelect <|> parseCreate <|> parseInsert
+    q <- parseSelect <|> parseCreate <|> parseInsert <|> parseLockChange
     _ <- optional parseWhitespace
     parseEnd
     pure q

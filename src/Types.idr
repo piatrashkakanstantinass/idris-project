@@ -117,7 +117,7 @@ rowValueToVect RowValueEnd = []
 rowValueToVect {s = RowSchemaSeq sss _} (RowValueSeq x y) = (sss ** x) :: rowValueToVect y
 
 public export
-data DataFrameState = Unlocked
+data DataFrameState = Unlocked | Locked
 
 public export
 record DataFrame where
@@ -181,7 +181,7 @@ public export
 data SelectCols = All | SpecificCols (List SQLName)
 
 public export
-data Query = Select SQLName SelectCols | Create SQLName DataFrame | Insert SQLName (List SQLQueryValue)
+data Query = Select SQLName SelectCols | Create SQLName DataFrame | Insert SQLName (List SQLQueryValue) | LockChange SQLName DataFrameState
 
 public export
 data DataFrameWidths : DataFrame -> Type where

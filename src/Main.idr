@@ -35,6 +35,16 @@ displayDataFrame df with (dataFrameWidths df)
 
 data QueryResult = SimpleOutput String | Table DataFrame
 
+data StateCmd : Type -> DataFrameState -> DataFrameState -> Type where
+    Lock : StateCmd () Unlocked Locked
+    Unlock : StateCmd () Locked Unlocked
+
+changeStateAttempt : (old: DataFrameState) -> (new: DataFrameState) -> Either ErrorMessage (StateCmd () old new)
+changeStateAttempt Unlocked Unlocked = Left "table is already unlocked"
+changeStateAttempt Unlocked Locked = Right Lock
+changeStateAttempt Locked Unlocked = Right Unlock
+changeStateAttempt Locked Locked = Left "table is already locked"
+
 lookupTable : DB -> SQLName -> Either ErrorMessage DataFrame
 lookupTable db name =
     case dbLookup db name of
@@ -49,9 +59,15 @@ processQuery db (Create name df) =
          (Just newDb) => Right (newDb, SimpleOutput "Created.")
 processQuery db (Insert name values) = do
     df <- lookupTable db name
-    case adaptRow df.schema values of
-         Nothing => Left "Schema does not match"
-         Just v' => Right (dbUpdate db name (dfInsert df v'), SimpleOutput "Inserted.")
+    case df.state of
+        Unlocked => case adaptRow df.schema values of
+            Nothing => Left "Schema does not match"
+            Just v' => Right (dbUpdate db name (dfInsert df v'), SimpleOutput "Inserted.")
+        Locked => Left "Table is locked."
+processQuery db (LockChange name newState) = do
+    df <- lookupTable db name
+    _ <- changeStateAttempt df.state newState
+    Right (dbUpdate db name (MkDataFrame df.schema df.names df.rows newState), SimpleOutput "State changed.")
 
 displayQueryResult : QueryResult -> String
 displayQueryResult (SimpleOutput str) = str ++ "\n"
