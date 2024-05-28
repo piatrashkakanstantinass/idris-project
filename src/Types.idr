@@ -117,11 +117,15 @@ rowValueToVect RowValueEnd = []
 rowValueToVect {s = RowSchemaSeq sss _} (RowValueSeq x y) = (sss ** x) :: rowValueToVect y
 
 public export
+data DataFrameState = Unlocked
+
+public export
 record DataFrame where
     constructor MkDataFrame
     schema : SQLRowSchema
     names : Vect (rowSchemaSize schema) SQLName
     rows: List (SQLRowValue schema)
+    state : DataFrameState
 
 export
 data DB = MkDB (SortedMap SQLName DataFrame)
@@ -143,11 +147,11 @@ dbUpdate db @ (MkDB smap) name df = MkDB $ updateExisting (\_ => df) name smap
 
 export
 dfInsert : (df: DataFrame) -> SQLRowValue df.schema -> DataFrame
-dfInsert (MkDataFrame schema names rows) x = MkDataFrame schema names $ rows ++ [x]
+dfInsert (MkDataFrame schema names rows st) x = MkDataFrame schema names (rows ++ [x]) st
 
 export initialDB : DB
 initialDB = MkDB $ fromList [
-    ("test", (MkDataFrame (RowSchemaSeq (MkSQLSchema True SQLSInt) RowSchemaEnd) ["id"] [(RowValueSeq (NotNull (SQLVInt 123)) RowValueEnd)]))
+    ("test", (MkDataFrame (RowSchemaSeq (MkSQLSchema True SQLSInt) RowSchemaEnd) ["id"] [(RowValueSeq (NotNull (SQLVInt 123)) RowValueEnd)] Unlocked))
 ]
 
 public export
@@ -194,7 +198,7 @@ valueColWidth xs = foldl maximum 0 $ map valueWidth xs
 
 export
 dataFrameWidths : (df : DataFrame) -> DataFrameWidths df
-dataFrameWidths d @ (MkDataFrame schema names rows) = let
+dataFrameWidths d @ (MkDataFrame schema names rows st) = let
     headerColWidths = map length names
     rows' = map (\r => rowValueToVect r) rows
     valueColWidths = map valueColWidth (valueCols rows')

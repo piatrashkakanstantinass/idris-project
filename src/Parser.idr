@@ -196,7 +196,7 @@ parseCreate = do
     _ <- optional parseWhitespace
     cols <- parseInParantheses parseColumnList
     (let (s ** names) = schemaAndNameFromList cols
-        in pure $ Create name (MkDataFrame s names []))
+        in pure $ Create name (MkDataFrame s names [] Unlocked))
 
 parseInsert : Parser Query
 parseInsert = do

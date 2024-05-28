@@ -10,7 +10,7 @@ import Parser
 
 displayDataFrame : DataFrame -> String
 displayDataFrame df with (dataFrameWidths df)
-  displayDataFrame (MkDataFrame schema names rows) | (DfWidths (MkDataFrame schema names rows) colWidths Refl) = let
+  displayDataFrame (MkDataFrame schema names rows _) | (DfWidths (MkDataFrame schema names rows _) colWidths Refl) = let
     rows' = map (\r => rowValueToVect r) rows
     in header names colWidths ++ tableRows rows' colWidths
     where
