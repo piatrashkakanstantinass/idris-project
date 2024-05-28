@@ -83,18 +83,6 @@ Show (SQLValue _) where
 public export
 data SQLRowSchema = RowSchemaEnd | RowSchemaSeq SQLSchema SQLRowSchema
 
-Uninhabited (RowSchemaEnd = (RowSchemaSeq _ _)) where
-    uninhabited Refl impossible
-
-Uninhabited ((RowSchemaSeq _ _) =  RowSchemaEnd) where
-    uninhabited Refl impossible
-
-headUnequalSQLRow : (contr : x = y -> Void) -> (xs : SQLRowSchema) -> (ys : SQLRowSchema) -> ((RowSchemaSeq x xs) = (RowSchemaSeq y ys) -> Void)
-headUnequalSQLRow contr _ _ Refl = contr Refl
-
-tailUnequalSQLRow : (xs : SQLRowSchema) -> (ys : SQLRowSchema) -> (contr : xs = ys -> Void) -> ((RowSchemaSeq x xs) = (RowSchemaSeq y ys) -> Void)
-tailUnequalSQLRow _ _ contr Refl = contr Refl
-
 public export
 rowSchemaSize : SQLRowSchema -> Nat
 rowSchemaSize RowSchemaEnd = 0
