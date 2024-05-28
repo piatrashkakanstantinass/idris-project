@@ -34,3 +34,7 @@ adaptRowWorksInGeneralCase : (s : SQLRowSchema) -> (v : SQLRowValue s) -> adaptR
 adaptRowWorksInGeneralCase RowSchemaEnd RowValueEnd = Refl
 adaptRowWorksInGeneralCase (RowSchemaSeq x y) (RowValueSeq z w) = adaptRowSeq x z (adaptRowWorksInGeneralCase y w)
 
+dfInsertActuallyInserts : (df : DataFrame) -> (row : SQLRowValue df.schema) ->
+  dfInsert df row = MkDataFrame df.schema df.names (df.rows ++ [row]) df.state
+dfInsertActuallyInserts (MkDataFrame RowSchemaEnd names rows state) RowValueEnd = Refl
+dfInsertActuallyInserts (MkDataFrame (RowSchemaSeq _ _) names rows state) (RowValueSeq x y) = Refl
