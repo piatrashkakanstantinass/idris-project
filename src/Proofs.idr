@@ -38,3 +38,9 @@ dfInsertActuallyInserts : (df : DataFrame) -> (row : SQLRowValue df.schema) ->
   dfInsert df row = MkDataFrame df.schema df.names (df.rows ++ [row]) df.state
 dfInsertActuallyInserts (MkDataFrame RowSchemaEnd names rows state) RowValueEnd = Refl
 dfInsertActuallyInserts (MkDataFrame (RowSchemaSeq _ _) names rows state) (RowValueSeq x y) = Refl
+
+schemaSizeOfEnd : rowSchemaSize RowSchemaEnd = 0
+schemaSizeOfEnd = Refl
+
+schemaSizeOfSucc : rowSchemaSize (RowSchemaSeq _ s) = S (rowSchemaSize s)
+schemaSizeOfSucc = Refl
