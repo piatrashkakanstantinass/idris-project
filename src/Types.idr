@@ -3,6 +3,8 @@ module Types
 import Data.SortedMap
 import Data.Vect
 import Data.String
+import Data.Stream
+import Data.Nat
 
 %default total
 
@@ -112,8 +114,9 @@ record DataFrame where
     constructor MkDataFrame
     schema : SQLRowSchema
     names : Vect (rowSchemaSize schema) SQLName
-    rows: List (SQLRowValue schema)
+    rows: List ((Nat, SQLRowValue schema))
     state : DataFrameState
+    idStream : Stream Nat
 
 export
 data DB = MkDB (SortedMap SQLName DataFrame)
@@ -135,12 +138,10 @@ dbUpdate db @ (MkDB smap) name df = MkDB $ updateExisting (\_ => df) name smap
 
 public export
 dfInsert : (df: DataFrame) -> SQLRowValue df.schema -> DataFrame
-dfInsert (MkDataFrame schema names rows st) x = MkDataFrame schema names (rows ++ [x]) st
+dfInsert (MkDataFrame schema names rows st stream) x = MkDataFrame schema names (rows ++ [(index 0 stream, x)]) st (drop 1 stream)
 
 export initialDB : DB
-initialDB = MkDB $ fromList [
-    ("test", (MkDataFrame (RowSchemaSeq (MkSQLSchema True SQLSInt) RowSchemaEnd) ["id"] [(RowValueSeq (NotNull (SQLVInt 123)) RowValueEnd)] Unlocked))
-]
+initialDB = MkDB $ fromList []
 
 public export
 data SQLQueryValue = SQLQVString String | SQLQVInt Int | SQLQVBool Bool | SQLQVNull
@@ -170,7 +171,10 @@ public export
 data SelectCols = All | SpecificCols (List SQLName)
 
 public export
-data Query = Select SQLName SelectCols | Create SQLName DataFrame | Insert SQLName (List SQLQueryValue) | LockChange SQLName DataFrameState
+data ShowInternalIds = ShowInternal | DoNotShow
+
+public export
+data Query = Select SQLName SelectCols ShowInternalIds | Create SQLName DataFrame | Insert SQLName (List SQLQueryValue) | LockChange SQLName DataFrameState
 
 public export
 data DataFrameWidths : DataFrame -> Type where
@@ -187,9 +191,30 @@ valueColWidth xs = foldl maximum 0 $ map valueWidth xs
 
 export
 dataFrameWidths : (df : DataFrame) -> DataFrameWidths df
-dataFrameWidths d @ (MkDataFrame schema names rows st) = let
+dataFrameWidths d @ (MkDataFrame schema names rows st _) = let
     headerColWidths = map length names
-    rows' = map (\r => rowValueToVect r) rows
+    rows' = map (\r => rowValueToVect (snd r)) rows
     valueColWidths = map valueColWidth (valueCols rows')
     colWidths = map (\(a,b) => maximum a b) $ zip headerColWidths valueColWidths
     in DfWidths d colWidths Refl
+
+natToInt : Nat -> Int
+natToInt 0 = 0
+natToInt (S k) = 1 + (natToInt k)
+
+public export
+dfInsertDoesNotChangeSchema : (df : DataFrame) -> (val : SQLRowValue df.schema) -> (dfInsert df val).schema = df.schema
+dfInsertDoesNotChangeSchema (MkDataFrame schema names rows state idStream) val = Refl
+
+dataframeWithInternalIds' : (df : DataFrame) -> List (SQLRowValue (df.schema)) -> Nat -> DataFrame
+dataframeWithInternalIds' df _ 0 = df
+dataframeWithInternalIds' df [] (S k) = df
+dataframeWithInternalIds' df (x :: xs) (S k) = dataframeWithInternalIds' (dfInsert df x) (rewrite dfInsertDoesNotChangeSchema df x in xs) k
+
+public export
+dataFrameWithInternalIds : DataFrame -> DataFrame
+dataFrameWithInternalIds (MkDataFrame schema names rows state idStream) =
+    dataframeWithInternalIds'
+        (MkDataFrame (RowSchemaSeq (MkSQLSchema False SQLSInt) schema) ("internal id" :: names) [] state nats)
+        (map (\(fst,snd) => RowValueSeq (NotNull (SQLVInt (natToInt fst))) snd) rows)
+        (length rows)

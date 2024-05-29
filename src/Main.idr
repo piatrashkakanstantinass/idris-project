@@ -10,8 +10,8 @@ import Parser
 
 displayDataFrame : DataFrame -> String
 displayDataFrame df with (dataFrameWidths df)
-  displayDataFrame (MkDataFrame schema names rows _) | (DfWidths (MkDataFrame schema names rows _) colWidths Refl) = let
-    rows' = map (\r => rowValueToVect r) rows
+  displayDataFrame (MkDataFrame schema names rows _ _) | (DfWidths (MkDataFrame schema names rows _ _) colWidths Refl) = let
+    rows' = map (\r => rowValueToVect (snd r)) rows
     in header names colWidths ++ tableRows rows' colWidths
     where
 
@@ -52,7 +52,8 @@ lookupTable db name =
         (Just y) => Right y
 
 processQuery : DB -> Query -> Either ErrorMessage (DB, QueryResult)
-processQuery db (Select x _) = lookupTable db x >>= (\t => pure (db, Table t))
+processQuery db (Select x _ ShowInternal) = lookupTable db x >>= (\t => pure (db, (Table (dataFrameWithInternalIds t))))
+processQuery db (Select x _ DoNotShow) = lookupTable db x >>= (\t => pure (db, Table t))
 processQuery db (Create name df) =
     case dbInsert db name df of
          Nothing => Left "Table exists"
@@ -67,7 +68,7 @@ processQuery db (Insert name values) = do
 processQuery db (LockChange name newState) = do
     df <- lookupTable db name
     _ <- changeStateAttempt df.state newState
-    Right (dbUpdate db name (MkDataFrame df.schema df.names df.rows newState), SimpleOutput "State changed.")
+    Right (dbUpdate db name (MkDataFrame df.schema df.names df.rows newState df.idStream), SimpleOutput "State changed.")
 
 displayQueryResult : QueryResult -> String
 displayQueryResult (SimpleOutput str) = str ++ "\n"

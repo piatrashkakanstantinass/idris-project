@@ -1,6 +1,8 @@
 module Proofs
 
 import Types
+import Data.Stream
+import Data.Vect
 
 %default total
 
@@ -35,12 +37,18 @@ adaptRowWorksInGeneralCase RowSchemaEnd RowValueEnd = Refl
 adaptRowWorksInGeneralCase (RowSchemaSeq x y) (RowValueSeq z w) = adaptRowSeq x z (adaptRowWorksInGeneralCase y w)
 
 dfInsertActuallyInserts : (df : DataFrame) -> (row : SQLRowValue df.schema) ->
-  dfInsert df row = MkDataFrame df.schema df.names (df.rows ++ [row]) df.state
-dfInsertActuallyInserts (MkDataFrame RowSchemaEnd names rows state) RowValueEnd = Refl
-dfInsertActuallyInserts (MkDataFrame (RowSchemaSeq _ _) names rows state) (RowValueSeq x y) = Refl
+  dfInsert df row = MkDataFrame df.schema df.names (df.rows ++ [(index 0 df.idStream,row)]) df.state (drop 1 df.idStream)
+dfInsertActuallyInserts (MkDataFrame schema names rows state idStream) row = Refl
 
 schemaSizeOfEnd : rowSchemaSize RowSchemaEnd = 0
 schemaSizeOfEnd = Refl
 
 schemaSizeOfSucc : rowSchemaSize (RowSchemaSeq _ s) = S (rowSchemaSize s)
 schemaSizeOfSucc = Refl
+
+-- rowValueToVect : {s : SQLRowSchema} -> SQLRowValue s -> Vect (rowSchemaSize s) (ss ** SQLValue ss)
+rowValueToVectWithEmpty : rowValueToVect RowValueEnd = []
+rowValueToVectWithEmpty = Refl
+
+rowValueToVectSeq : rowValueToVect {s = RowSchemaSeq ss ns} (RowValueSeq val nv) = ((ss ** val) :: rowValueToVect nv)
+rowValueToVectSeq = Refl

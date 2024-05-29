@@ -3,6 +3,7 @@ module Parser
 import Data.List
 import Data.Vect
 import Data.String
+import Data.Stream
 import Types
 
 %default total
@@ -111,16 +112,26 @@ parseSelectSpecific = do
     names <- parseCommaSeparated parseName
     pure (SpecificCols names)
 
+parseSelectShowInternalKeyword : Parser ShowInternalIds
+parseSelectShowInternalKeyword = do
+    _ <- parseIgnoreCaseString "iselect"
+    pure ShowInternal
+
+parseSelectRegularKeyword : Parser ShowInternalIds
+parseSelectRegularKeyword = do
+    _ <- parseIgnoreCaseString "select"
+    pure DoNotShow
+
 parseSelect : Parser Query
 parseSelect = do
-    _ <- parseIgnoreCaseString "select"
+    internal <- parseSelectShowInternalKeyword <|> parseSelectRegularKeyword
     _ <- parseWhitespace
     selectCols <- parseSelectAll <|> parseSelectSpecific
     _ <- parseWhitespace
     _ <- parseIgnoreCaseString "from"
     _ <- parseWhitespace
     name <- parseName
-    pure $ Select name selectCols
+    pure $ Select name selectCols internal
 
 parseSQLPrimitiveSchema: Parser SQLPrimitiveSchema
 parseSQLPrimitiveSchema = parseName >>= \name => MkParser $ \inp =>
@@ -196,7 +207,7 @@ parseCreate = do
     _ <- optional parseWhitespace
     cols <- parseInParantheses parseColumnList
     (let (s ** names) = schemaAndNameFromList cols
-        in pure $ Create name (MkDataFrame s names [] Unlocked))
+        in pure $ Create name (MkDataFrame s names [] Unlocked nats))
 
 parseInsert : Parser Query
 parseInsert = do
